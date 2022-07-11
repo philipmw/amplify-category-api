@@ -234,6 +234,121 @@ test('for @function with account ID, it generates the expected resources', () =>
   expect(out.resolvers).toMatchSnapshot();
 });
 
+test('for @function with role ARN, it generates the expected resources', () => {
+  const validSchema = `
+    type Query {
+        echo(msg: String): String @function(name: "echofunction", roleArn: "arn:aws:iam::0123:role/GivenRole")
+    }
+    `;
+
+  const transformer = new GraphQLTransform({
+    transformers: [new FunctionTransformer()],
+  });
+
+  const out = transformer.transform(validSchema);
+  expect(out).toBeDefined();
+  expect(out.stacks).toBeDefined();
+  parse(out.schema);
+  const stack = out.stacks.FunctionDirectiveStack;
+  expect(stack).toBeDefined();
+  cdkExpect(stack).to(countResources('AWS::IAM::Role', 0));
+  cdkExpect(stack).to(countResources('AWS::IAM::Policy', 0));
+  cdkExpect(stack).to(countResources('AWS::AppSync::DataSource', 1));
+  cdkExpect(stack).to(countResources('AWS::AppSync::FunctionConfiguration', 1));
+  cdkExpect(stack).to(countResources('AWS::AppSync::Resolver', 1));
+  cdkExpect(stack).to(
+    haveResource('AWS::IAM::Role', {
+      AssumeRolePolicyDocument: {
+        Statement: [
+          {
+            Action: 'sts:AssumeRole',
+            Effect: 'Allow',
+            Principal: {
+              Service: 'appsync.amazonaws.com',
+            },
+          },
+        ],
+        Version: '2012-10-17',
+      },
+    }),
+  );
+  cdkExpect(stack).to(
+    haveResource('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: [
+          {
+            Action: 'lambda:InvokeFunction',
+            Effect: 'Allow',
+            Resource: {
+              'Fn::If': [
+                'HasEnvironmentParameter',
+                {
+                  'Fn::Sub': ['arn:aws:lambda:${AWS::Region}:123123456456:function:echofunction', {}],
+                },
+                { 'Fn::Sub': 'arn:aws:lambda:${AWS::Region}:123123456456:function:echofunction' },
+              ],
+            },
+          },
+        ],
+        Version: '2012-10-17',
+      },
+      PolicyName: anything(),
+      Roles: [{ Ref: anything() }],
+    }),
+  );
+  cdkExpect(stack).to(
+    haveResource('AWS::AppSync::DataSource', {
+      ApiId: { Ref: anything() },
+      Name: 'Echofunction123123456456LambdaDataSource',
+      Type: 'AWS_LAMBDA',
+      LambdaConfig: {
+        LambdaFunctionArn: {
+          'Fn::If': [
+            'HasEnvironmentParameter',
+            {
+              'Fn::Sub': ['arn:aws:lambda:${AWS::Region}:123123456456:function:echofunction', {}],
+            },
+            { 'Fn::Sub': 'arn:aws:lambda:${AWS::Region}:123123456456:function:echofunction' },
+          ],
+        },
+      },
+      ServiceRoleArn: {
+        'Fn::GetAtt': ['Echofunction123123456456LambdaDataSourceServiceRole0B60B47E', 'Arn'],
+      },
+    }),
+  );
+  cdkExpect(stack).to(
+    haveResource('AWS::AppSync::FunctionConfiguration', {
+      ApiId: { Ref: anything() },
+      DataSourceName: { 'Fn::GetAtt': [anything(), 'Name'] },
+      FunctionVersion: '2018-05-29',
+      Name: 'InvokeEchofunction123123456456LambdaDataSource',
+      RequestMappingTemplateS3Location: {
+        'Fn::Join': ['', ['s3://', { Ref: anything() }, '/', { Ref: anything() }, '/resolvers/InvokeEchofunction123123456456LambdaDataSource.req.vtl']],
+      },
+      ResponseMappingTemplateS3Location: {
+        'Fn::Join': ['', ['s3://', { Ref: anything() }, '/', { Ref: anything() }, '/resolvers/InvokeEchofunction123123456456LambdaDataSource.res.vtl']],
+      },
+    }),
+  );
+  cdkExpect(stack).to(
+    haveResource('AWS::AppSync::Resolver', {
+      ApiId: { Ref: anything() },
+      FieldName: 'echo',
+      TypeName: 'Query',
+      Kind: 'PIPELINE',
+      PipelineConfig: {
+        Functions: [{ 'Fn::GetAtt': [anything(), 'FunctionId'] }],
+      },
+      RequestMappingTemplate: anything(),
+      ResponseMappingTemplateS3Location: {
+        'Fn::Join': ['', ['s3://', { Ref: anything() }, '/', { Ref: anything() }, '/resolvers/Query.echo.res.vtl']],
+      },
+    }),
+  );
+  expect(out.resolvers).toMatchSnapshot();
+});
+
 test('two @function directives for the same lambda should produce a single datasource, single role and two resolvers', () => {
   const validSchema = `
     type Query {

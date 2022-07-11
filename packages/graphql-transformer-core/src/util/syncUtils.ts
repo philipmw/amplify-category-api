@@ -125,6 +125,7 @@ export module SyncUtils {
     );
   }
   export function syncLambdaIAMRole({ name, region }: { name: string; region?: string }) {
+    throw new Error("WTF, syncLambdaIAMRole called");
     return new IAM.Role({
       RoleName: Fn.If(
         ResourceConstants.CONDITIONS.HasEnvironmentParameter,

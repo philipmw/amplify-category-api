@@ -20,7 +20,7 @@ export class FunctionTransformer extends Transformer {
     super(
       'FunctionTransformer',
       gql`
-        directive @function(name: String!, region: String, accountId: String) repeatable on FIELD_DEFINITION
+        directive @function(name: String!, region: String, accountId: String, roleArn: String) repeatable on FIELD_DEFINITION
       `
     );
   }
@@ -31,11 +31,13 @@ export class FunctionTransformer extends Transformer {
   field = (parent: ObjectTypeDefinitionNode, definition: FieldDefinitionNode, directive: DirectiveNode, ctx: TransformerContext) => {
     const fdConfig = parseFunctionDirective(directive);
 
-    // Add the iam role if it does not exist.
-    const iamRoleKey = FunctionResourceIDs.FunctionIAMRoleID(fdConfig);
-    if (!ctx.getResource(iamRoleKey)) {
-      ctx.setResource(iamRoleKey, this.role(fdConfig));
-      ctx.mapResourceToStack(FUNCTION_DIRECTIVE_STACK, iamRoleKey);
+    // Add the iam role if it does not exist and if the customer isn't using their own role
+    if (!fdConfig.roleArn) {
+      const iamRoleKey = FunctionResourceIDs.FunctionIAMRoleID(fdConfig);
+      if (!ctx.getResource(iamRoleKey)) {
+        ctx.setResource(iamRoleKey, this.role(fdConfig));
+        ctx.mapResourceToStack(FUNCTION_DIRECTIVE_STACK, iamRoleKey);
+      }
     }
 
     // Add the data source if it does not exist.
@@ -89,6 +91,7 @@ export class FunctionTransformer extends Transformer {
         Version: '2012-10-17',
         Statement: [
           {
+            Sid: 'pmw FIXME 1',
             Effect: 'Allow',
             Principal: {
               Service: 'appsync.amazonaws.com',
@@ -104,6 +107,7 @@ export class FunctionTransformer extends Transformer {
             Version: '2012-10-17',
             Statement: [
               {
+                Sid: 'pmw FIXME 2',
                 Effect: 'Allow',
                 Action: ['lambda:InvokeFunction'],
                 Resource: lambdaArnResource(fdConfig),
@@ -119,15 +123,19 @@ export class FunctionTransformer extends Transformer {
    * Creates a lambda data source that registers the lambda function and associated role.
    */
   datasource = (fdConfig: FunctionDirectiveConfig): any => {
-    return new AppSync.DataSource({
+    const ds = new AppSync.DataSource({
       ApiId: Fn.Ref(ResourceConstants.PARAMETERS.AppSyncApiId),
       Name: FunctionResourceIDs.FunctionDataSourceID(fdConfig),
       Type: 'AWS_LAMBDA',
-      ServiceRoleArn: Fn.GetAtt(FunctionResourceIDs.FunctionIAMRoleID(fdConfig), 'Arn'),
+      ServiceRoleArn: fdConfig.roleArn ?? Fn.GetAtt(FunctionResourceIDs.FunctionIAMRoleID(fdConfig), 'Arn'),
       LambdaConfig: {
         LambdaFunctionArn: lambdaArnResource(fdConfig),
       },
-    }).dependsOn(FunctionResourceIDs.FunctionIAMRoleID(fdConfig));
+    });
+    if (!fdConfig.roleArn) {
+      ds.dependsOn(FunctionResourceIDs.FunctionIAMRoleID(fdConfig));
+    }
+    return ds;
   };
 
   /**

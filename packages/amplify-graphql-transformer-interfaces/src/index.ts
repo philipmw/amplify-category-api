@@ -32,4 +32,4 @@ export {
   SearchableDataSourceOptions,
 } from './graphql-api-provider';
 
-export { TransformHostProvider, DynamoDbDataSourceOptions } from './transform-host-provider';
+export { DynamoDbDataSourceOptions, LambdaDataSourceOptions, TransformHostProvider } from './transform-host-provider';

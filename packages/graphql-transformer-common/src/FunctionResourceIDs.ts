@@ -7,16 +7,17 @@ export interface FunctionDirectiveConfig {
   name: string;
   region?: string;
   accountId?: string;
+  roleArn?: string;
 }
 
 export function parseFunctionDirective(directive: DirectiveNode): FunctionDirectiveConfig {
-  const { name, region, accountId } = getDirectiveArguments(directive);
+  const { name, region, accountId, roleArn } = getDirectiveArguments(directive);
 
   if (!name) {
     throw new TransformerContractError(`Must supply a 'name' to @function.`);
   }
 
-  return { name, region, accountId };
+  return { name, region, accountId, roleArn };
 }
 
 export class FunctionResourceIDs {
@@ -25,7 +26,7 @@ export class FunctionResourceIDs {
   }
 
   static FunctionIAMRoleID(fdConfig: FunctionDirectiveConfig): string {
-    return `${FunctionResourceIDs.FunctionDataSourceID(fdConfig)}Role`;
+    return `${FunctionResourceIDs.FunctionDataSourceID(fdConfig)}RolePMW`;
   }
 
   static FunctionIAMRoleName(name: string, withEnv: boolean = false): string {

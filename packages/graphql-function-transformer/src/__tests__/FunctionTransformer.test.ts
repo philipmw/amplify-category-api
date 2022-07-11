@@ -129,6 +129,32 @@ test('@function directive referencing Lambda function in another AWS account', (
   expect(resolverResource.Properties.PipelineConfig.Functions.length).toEqual(1);
 });
 
+test('@function directive referencing custom IAM role', () => {
+  const validSchema = `
+    type Query {
+        echo(msg: String): String @function(name: "echofunction", roleArn: "arn:myExistingRole")
+    }
+    `;
+
+  const transformer = new GraphQLTransform({
+    transformers: [new FunctionTransformer()],
+  });
+
+  const out = transformer.transform(validSchema);
+  expect(out).toBeDefined();
+  // EchofunctionLambdaDataSource, QueryEchoResolver, GraphQLSchema
+  expect(Object.keys(out.stacks.FunctionDirectiveStack.Resources).length).toEqual(3);
+
+  // datasource
+  let datasourceResource = out.stacks.FunctionDirectiveStack.Resources.EchofunctionLambdaDataSource;
+  expect(datasourceResource).toBeDefined();
+  expect(datasourceResource.Properties.ServiceRoleArn).toEqual("arn:myExistingRole");
+
+  // IAM role
+  let iamRoleResource = out.stacks.FunctionDirectiveStack.Resources.EchofunctionLambdaDataSourceRole;
+  expect(iamRoleResource).not.toBeDefined();
+});
+
 test('@function directive applied to Object should throw Error', () => {
   const invalidSchema = `
     type Query @function(name: "echofunction-\${env}") {

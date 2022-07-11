@@ -6,6 +6,7 @@ import {
   TransformerPluginBase,
 } from '@aws-amplify/graphql-transformer-core';
 import { TransformerContextProvider, TransformerSchemaVisitStepContextProvider } from '@aws-amplify/graphql-transformer-interfaces';
+import * as iam from '@aws-cdk/aws-iam';
 import * as lambda from '@aws-cdk/aws-lambda';
 import { AuthorizationType } from '@aws-cdk/aws-appsync';
 import * as cdk from '@aws-cdk/core';
@@ -20,7 +21,7 @@ interface FunctionDirectiveWithResolverConfig extends FunctionDirectiveConfig {
 
 const FUNCTION_DIRECTIVE_STACK = 'FunctionDirectiveStack';
 const directiveDefinition = /* GraphQL */ `
-  directive @function(name: String!, region: String, accountId: String) repeatable on FIELD_DEFINITION
+  directive @function(name: String!, region: String, accountId: String, roleArn: String) repeatable on FIELD_DEFINITION
 `;
 
 export class FunctionTransformer extends TransformerPluginBase {
@@ -78,7 +79,9 @@ export class FunctionTransformer extends TransformerPluginBase {
             lambda.Function.fromFunctionAttributes(stack, `${dataSourceId}Function`, {
               functionArn: lambdaArnResource(env, config),
             }),
-            {},
+            {
+              serviceRole: config.roleArn ? iam.Role.fromRoleArn(stack, 'ServiceRole', config.roleArn) : undefined,
+            },
             stack,
           );
           createdResources.set(dataSourceId, dataSource);

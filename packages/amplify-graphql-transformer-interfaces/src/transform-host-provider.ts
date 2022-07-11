@@ -25,13 +25,20 @@ export interface DynamoDbDataSourceOptions extends DataSourceOptions {
   readonly serviceRole: IRole;
 }
 
+export interface LambdaDataSourceOptions extends DataSourceOptions {
+  /**
+   * ServiceRole for the Lambda function
+   */
+  readonly serviceRole?: IRole;
+}
+
 export interface TransformHostProvider {
   setAPI(api: GraphqlApiBase): void;
 
   addHttpDataSource(name: string, endpoint: string, options?: DataSourceOptions, stack?: Stack): HttpDataSource;
   addDynamoDbDataSource(name: string, table: ITable, options?: DynamoDbDataSourceOptions, stack?: Stack): DynamoDbDataSource;
   addNoneDataSource(name: string, options?: DataSourceOptions, stack?: Stack): NoneDataSource;
-  addLambdaDataSource(name: string, lambdaFunction: IFunction, options?: DataSourceOptions, stack?: Stack): LambdaDataSource;
+  addLambdaDataSource(name: string, lambdaFunction: IFunction, options?: LambdaDataSourceOptions, stack?: Stack): LambdaDataSource;
   addSearchableDataSource(
     name: string,
     endpoint: string,

@@ -1,7 +1,9 @@
 import {
   DynamoDbDataSourceOptions,
-  InlineMappingTemplateProvider,
-  MappingTemplateProvider, MappingTemplateType, S3MappingTemplateProvider, SearchableDataSourceOptions, TransformHostProvider,
+  LambdaDataSourceOptions,
+  MappingTemplateProvider,
+  SearchableDataSourceOptions,
+  TransformHostProvider,
 } from '@aws-amplify/graphql-transformer-interfaces';
 import {
   BaseDataSource, CfnResolver,
@@ -109,7 +111,7 @@ export class DefaultTransformHost implements TransformHostProvider {
     return dataSource;
   }
 
-  public addLambdaDataSource = (name: string, lambdaFunction: IFunction, options?: DataSourceOptions, stack?: Stack): LambdaDataSource => {
+  public addLambdaDataSource = (name: string, lambdaFunction: IFunction, options?: LambdaDataSourceOptions, stack?: Stack): LambdaDataSource => {
     if (!Token.isUnresolved(name) && this.dataSources.has(name)) {
       throw new Error(`DataSource ${name} already exists in the API`);
     }
@@ -341,12 +343,13 @@ export class DefaultTransformHost implements TransformHostProvider {
    * @param lambdaFunction The Lambda function to call to interact with this data source
    * @param options The optional configuration for this data source
    */
-  protected doAddLambdaDataSource(id: string, lambdaFunction: IFunction, options?: DataSourceOptions, stack?: Stack): LambdaDataSource {
+  protected doAddLambdaDataSource(id: string, lambdaFunction: IFunction, options?: LambdaDataSourceOptions, stack?: Stack): LambdaDataSource {
     const ds = new LambdaDataSource(stack || this.api, id, {
       api: this.api,
       lambdaFunction,
       name: options?.name,
       description: options?.description,
+      serviceRole: options?.serviceRole,
     });
 
     (ds as any).node.defaultChild.overrideLogicalId(id);
